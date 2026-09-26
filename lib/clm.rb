@@ -9,11 +9,10 @@ require "zeitwerk"
 #
 #   CLM.configure { |c| c.base_url = "http://127.0.0.1:8700" }
 #
-#   response = CLM.system_one(
-#     "Customer: my invoice was charged twice!",
-#     urgency: CLM::Noul.new(instructions: "Is this urgent?")
-#   )
-#   response.answers[:urgency].noul # => 0.41
+#   response = CLM.system_one("Customer: my invoice was charged twice!") do |q|
+#     q.noul :urgency, "Is this urgent?"
+#   end
+#   response[:urgency].noul # => 0.41
 module CLM
   class << self
     # Yields the global configuration for mutation.
