@@ -161,6 +161,35 @@ embedded concurrently, and an embedder call's batches run as concurrent tasks (`
 `clm-serve` runs on Falcon, so every request is a fiber and the time spent waiting on the encoder is
 shared. See [`examples/async_fan_out.rb`](examples/async_fan_out.rb).
 
+## Through ruby_decision_model and RubyLLM
+
+`clm-serve` speaks the same System One API as TypeSafe's hosted models, so two provider gems plug
+CLM into the clients built for them, over HTTP or, given a `CLM::Engine`, in-process:
+
+[ruby_decision_model-providers-clm](https://github.com/codenamev/ruby_decision_model-providers-clm)
+makes it a [ruby_decision_model](https://github.com/obie/ruby_decision_model) provider, so an
+application can move between a hosted model, Laya and CLM without changing a call site:
+
+```ruby
+client = RubyDecisionModel::Client.new(provider: :clm)   # instead of :typesafe or :laya
+response = client.ask(state: ticket, questions: questions)
+```
+
+[ruby_llm-providers-clm](https://github.com/codenamev/ruby_llm-providers-clm) does the same for
+[RubyLLM](https://github.com/crmne/ruby_llm)'s judges, and adds reranking:
+
+```ruby
+class TicketTriage < RubyLLM::Judge
+  model "clm-latest", provider: :clm
+  probability :urgent, "Does this need attention today?"
+end
+
+RubyLLM.rerank("What causes tides?", documents, model: "clm-latest", provider: :clm)
+```
+
+Both depend on unreleased work (ruby_decision_model's registration hook, RubyLLM's judges on main,
+and this gem); their READMEs show how to point Bundler at checkouts in the meantime.
+
 ## Playground
 
 `clm-serve` also serves a web UI at `/` (`http://localhost:8700/`). Write a state, add typed questions
