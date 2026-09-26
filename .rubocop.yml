@@ -44,3 +44,6 @@ RSpec/NestedGroups:
 
 RSpec/MultipleMemoizedHelpers:
   Max: 8
+
+Style/StringLiteralsInInterpolation:
+  EnforcedStyle: double_quotes
