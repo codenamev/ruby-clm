@@ -54,4 +54,19 @@ RSpec.describe CLM::CLI::Serve do
     expect { serve("--no-download", env: env.merge("CLM_CKPT_DIR" => "/nonexistent")).run }
       .to raise_error(CLM::Error, /no checkpoint/)
   end
+
+  describe "the executable" do
+    def ruby(*args)
+      IO.popen([RbConfig.ruby, "-I", File.expand_path("../../../lib", __dir__), *args], err: %i[child out], &:read)
+    end
+
+    it "prints its usage" do
+      expect(ruby(File.expand_path("../../../exe/clm-serve", __dir__), "--help"))
+        .to include("Usage: clm-serve [options]", "--action-cache BUDGET", "--no-download")
+    end
+
+    it "has Async loaded before it starts Falcon in a fresh process" do
+      expect(ruby("-e", 'require "clm"; CLM::CLI::Serve; print respond_to?(:Sync, true)')).to eq("true")
+    end
+  end
 end
