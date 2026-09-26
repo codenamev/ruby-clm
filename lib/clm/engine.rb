@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require "async"
-
 module CLM
   # The inference engine: a state plus typed questions in, answer distributions
   # out, no HTTP server needed.  It answers the same calls as CLM::Client.
@@ -140,10 +138,8 @@ module CLM
                 [["raw/state", nil, states], ["raw/action", nil, candidates]]
               end
       dim = head ? head.projection_dim : raw_dim
-      Sync do |task|
-        sides.map { |namespace, project, texts| task.async { cached(namespace, dim, texts, project, &spent) } }
-             .map(&:wait)
-      end.push(head ? head.scale : RAW_SCALE)
+      Concurrently.map(sides) { |namespace, project, texts| cached(namespace, dim, texts, project, &spent) }
+                  .push(head ? head.scale : RAW_SCALE)
     end
 
     def cached(namespace, dim, texts, project, &spent)

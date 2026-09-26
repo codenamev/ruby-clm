@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require "async"
-require "async/semaphore"
 require "base64"
 require "numo/narray"
 
@@ -84,13 +82,7 @@ module CLM
     end
 
     def fetch_all(texts)
-      chunks = texts.each_slice(batch_size).to_a
-      return chunks.map { fetch(_1) } if chunks.size <= 1 || @concurrency <= 1
-
-      Sync do
-        semaphore = Async::Semaphore.new(@concurrency)
-        chunks.map { |chunk| semaphore.async { fetch(chunk) } }.map(&:wait)
-      end
+      Concurrently.map(texts.each_slice(batch_size).to_a, limit: @concurrency) { fetch(_1) }
     end
 
     # -> [texts, [normalised vector per text], prompt tokens]

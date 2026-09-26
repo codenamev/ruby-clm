@@ -36,6 +36,9 @@ module CLM
 
     HOST_BYTEORDER = [1].pack("S") == [1].pack("v") ? "little" : "big"
 
+    # torch.save stamps every entry 1980-00-00, which rubyzip would warn about per entry.
+    Zip.warn_invalid_date = false
+
     def self.load(path)
       new(path).load
     end
