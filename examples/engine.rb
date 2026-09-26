@@ -7,14 +7,14 @@
 
 require "clm"
 
-engine = CLM::Engine.new(checkpoint: CLM::Hub.download)
+CLM.configure { |config| config.client = CLM::Engine.new(checkpoint: CLM::Hub.download) }
 
-engine.rank("What causes tides on Earth?", ["The Moon's gravitational pull.", "Photosynthesis in plants."])
-      .each { |r| puts "#{r.rank}. #{r.candidate} (#{r.prob.round(3)})" }
+CLM.rank("What causes tides on Earth?", ["The Moon's gravitational pull.", "Photosynthesis in plants."])
+   .each { |r| puts "#{r.rank}. #{r.candidate} (#{r.prob.round(3)})" }
 
-answer = engine.system_one({ ticket: "Refund still missing after 3 weeks", plan: "enterprise" }) do |q|
-  q.choice :next_step, "What should support do next?",
-           escalate: "Escalate to a billing specialist", refund: "Issue the refund now",
-           wait: "Ask the customer to wait"
-end
-puts answer[:next_step].choice
+next_step = CLM.ask({ ticket: "Refund still missing after 3 weeks", plan: "enterprise" })
+               .choice(:next_step, "What should support do next?",
+                       escalate: "Escalate to a billing specialist", refund: "Issue the refund now",
+                       wait: "Ask the customer to wait")
+               .decide[:next_step]
+puts next_step

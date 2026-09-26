@@ -6,26 +6,29 @@
 
 require "clm"
 
-client = CLM::Client.new
-
-response = client.system_one("Customer: my invoice was charged twice and nobody answers the phone!") do |q|
-  q.noul :urgency, "Is this urgent?"
-  q.choice :department, "Which team should handle this?",
-           billing: "Charges, invoices, refunds", technical: "Bugs and outages"
-  q.score :frustration, "How frustrated is the customer?", ["Calm", "Frustrated", "Very angry"]
+# Declare a decision once, ask it of every state.
+class TicketTriage < CLM::Decision
+  noul :urgent, "Is this urgent?"
+  choice :department, "Which team should handle this?",
+         billing: "Charges, invoices, refunds", technical: "Bugs and outages"
+  score :frustration, "How frustrated is the customer?", levels: ["Calm", "Frustrated", "Very angry"]
 end
 
-puts response[:urgency].noul                # probability the statement is true
-puts response[:department].choice           # "billing"
-p response[:department].probabilities       # {"billing" => 0.93878, "technical" => 0.06122}
-puts response[:frustration].score           # expected level, 0..2
-puts response[:frustration].level           # the likeliest level's rubric text
-puts "#{response.usage.input_tokens} tokens in #{response.latency_ms} ms"
+triage = TicketTriage.decide("Customer: my invoice was charged twice and nobody answers the phone!")
 
-# The same request as TypeSafe-style wire hashes replays unchanged:
-client.system_one("The build is red again.", { flaky: { type: "noul", instructions: "Is this a flaky test?" } })
+puts triage.urgent?                          # the statement is more likely true than not
+puts triage.urgent.probability               # probability the statement is true
+puts triage.department == :billing           # a choice stands in for its label
+p triage.department.probabilities            # {"billing" => 0.93878, "technical" => 0.06122}
+puts triage.frustration.score                # expected level, 0..2
+puts triage.frustration.label                # the rubric text nearest it
+puts "#{triage.usage.input_tokens} encoder tokens in #{triage.result.latency_ms} ms"
+
+# Questions not worth a class:
+refund = CLM.ask("Please just send the money back.").noul(:refund, "Do they want money back?").decide
+puts refund[:refund].probability
 
 # Rank free-form candidates: best-of-N answers, tool names, next moves.
-client.rank("What causes tides on Earth?",
-            ["The Moon's gravitational pull.", "Photosynthesis in plants.", "Because the Earth is round."])
-      .each { |r| puts "#{r.rank}. #{r.candidate} (#{r.prob.round(3)})" }
+CLM.rank("What causes tides on Earth?",
+         ["The Moon's gravitational pull.", "Photosynthesis in plants.", "Because the Earth is round."])
+   .each { |r| puts "#{r.rank}. #{r.candidate} (#{r.prob.round(3)})" }

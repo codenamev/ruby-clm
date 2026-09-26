@@ -10,8 +10,11 @@ aligns with the state's, and a softmax over those scores *is* the answer distrib
 and actions are embedded independently, both sides are cached and reused, which makes answers come
 back in milliseconds.
 
-This gem gives you, in idiomatic Ruby:
+This gem gives you, in idiomatic Ruby and with the same API as its sibling
+[ruby-laya](https://github.com/codenamev/ruby-laya):
 
+- **`CLM::Decision`** and **`CLM.ask`**: declare typed questions once, or inline, and read the answers
+  as Ruby values (`triage.churn_risk?`, `triage.department == :billing`).
 - **`CLM::Client`**: an HTTP client for the CLM System One API (TypeSafe-compatible), fiber-friendly
   so requests fan out concurrently under [Async](https://github.com/socketry/async).
 - **`CLM::Engine`**: the in-process inference engine. It loads the upstream PyTorch projection-head
@@ -19,15 +22,20 @@ This gem gives you, in idiomatic Ruby:
   PyTorch's outputs to 1e-5.
 - **`clm-serve`**: the API and its playground UI as a Rack app on [Falcon](https://github.com/socketry/falcon).
 
+Every backend answers `predict(state, questions, **options)`, the same seam ruby-laya's clients answer,
+so a decision runs unchanged against `clm-serve`, the in-process engine, a Laya checkpoint or a test
+double.
+
 ## Installation
 
 ```ruby
 # Gemfile
-gem "clm", github: "codenamev/ruby-clm"
+gem "ruby-clm", github: "codenamev/ruby-clm", require: "clm"
+gem "falcon" # only if you run clm-serve
 ```
 
 Ruby 3.2 or newer. The engine and server also need an embedding server for the encoder (see below);
-the client needs nothing but a running `clm-serve`.
+the client needs nothing but a running `clm-serve`, and loads nothing but the standard library.
 
 ## Quickstart
 
@@ -46,70 +54,78 @@ States longer than 2048 tokens are truncated. For longer states raise both limit
 
 ### Ask typed questions about a state
 
+Declare a decision once and ask it of every state:
+
 ```ruby
 require "clm"
 
-client = CLM::Client.new # CLM_BASE_URL (default http://127.0.0.1:8700), CLM_API_KEY
-
-response = client.system_one("Customer: my invoice was charged twice and nobody answers the phone!") do |q|
-  q.noul :urgency, "Is this urgent?"
-  q.choice :department, "Which team should handle this?",
-           billing: "Charges, invoices, refunds", technical: "Bugs and outages"
-  q.score :frustration, "How frustrated is the customer?", ["Calm", "Frustrated", "Very angry"]
+class TicketTriage < CLM::Decision
+  noul :urgent, "Is this urgent?"
+  choice :department, "Which team should handle this?",
+         billing: "Charges, invoices, refunds", technical: "Bugs and outages"
+  score :frustration, "How frustrated is the customer?", levels: ["Calm", "Frustrated", "Very angry"]
 end
 
-response[:urgency].noul                  # => 0.41022   probability the statement is true
-response[:department].choice             # => "billing"
-response[:department].probabilities      # => {"billing" => 0.93878, "technical" => 0.06122}
-response[:frustration].score             # => 1.98386   expected level, 0..2
-response[:frustration].level             # => "Very angry"
-response.usage.input_tokens              # => 38        (encoder tokens spent on cache misses)
-response.latency_ms                      # => 58.1      (server-side)
+triage = TicketTriage.decide("Customer: my invoice was charged twice and nobody answers the phone!")
+
+triage.urgent?                        # => false     every noul gets a predicate (probability > 0.5)
+triage.urgent.probability             # => 0.41022   probability the statement is true
+triage.department                     # => #<CLM::Answer::Choice billing 93.9%>
+triage.department == :billing         # => true      a choice stands in for its label
+triage.department.billing?            # => true
+triage.department.probabilities       # => {"billing" => 0.93878, "technical" => 0.06122}
+triage.frustration.score              # => 1.98386   expected level, 0..2
+triage.frustration.label              # => "Very angry" (the rubric text nearest the score)
+triage.usage.input_tokens             # => 38        encoder tokens spent on cache misses
+triage.result.latency_ms              # => 58.1      server-side
 ```
 
-Questions can also be objects or plain wire-format hashes, so a request written for TypeSafe replays
-unchanged:
+A noul can describe its two ends when the statement alone is ambiguous
+(`noul :spam, "Is this spam?", yes: "Unsolicited ads", no: "A real message"`), a choice takes labels
+as keywords, a hash or a plain list (`choice :tone, "Which tone?", %w[calm annoyed furious]`), and
+`model "clm-raw"` pins a decision to one served model. `CLM::Decision.define(hash)` builds a decision
+from a question set that is generated or shipped as JSON.
+
+For questions not worth a class, ask inline:
 
 ```ruby
-client.system_one(state, {
-  urgency: CLM::Noul.new(instructions: "Is this urgent?"),
-  department: { type: "choice", instructions: "Which team?", criteria: { billing: "Charges", technical: "Bugs" } }
-})
+CLM.ask(email)
+   .choice(:department, "Which team?", billing: "invoices", technical: "outages")
+   .noul(:refund, "Do they want money back?")
+   .decide[:refund].probability # => 0.856
 ```
 
-A `CLM::QuestionSet` is reusable, which suits an agent that asks the same questions of every state:
+Underneath, both call `predict(state, questions)` on the shared client with wire-format questions,
+which you can also do directly, so a request written for TypeSafe replays unchanged:
 
 ```ruby
-TRIAGE = CLM::QuestionSet.build do |q|
-  q.noul :urgent, "Is this urgent?"
-  q.choice :team, "Which team should handle this?", billing: "Charges and refunds", technical: "Bugs"
-end
-
-client.system_one(ticket, TRIAGE)
+CLM.predict(state, { "urgency" => { "type" => "noul", "instructions" => "Is this urgent?" } })
+CLM.predict(state, { urgency: CLM::Questions.noul("Is this urgent?") }, temperature: 0.5)
 ```
 
-With `CLM.configure` you can skip building a client:
+`CLM.configure` points the shared client at your server, or replaces it:
 
 ```ruby
 CLM.configure do |config|
   config.base_url = "https://clm.internal"
   config.api_key = ENV.fetch("CLM_API_KEY")
+  # config.client = CLM::Engine.new   # answer in-process instead
 end
 
-CLM.system_one(state) { |q| q.noul :done, "Did the agent finish the task?" }
+TicketTriage.decide(ticket, client: CLM::Client.new(base_url: "http://gpu-box:8700")) # or per call
 ```
 
 ### Rank candidates directly
 
-`system_one` is built on one primitive: scoring candidates against a state. For free-form candidates
+Every decision is built on one primitive: scoring candidates against a state. For free-form candidates
 (best-of-N answers, tool names, next moves) use `rank`:
 
 ```ruby
-client.rank("What causes tides on Earth?",
-            ["The Moon's gravitational pull.", "Photosynthesis in plants.", "Because the Earth is round."])
+CLM.rank("What causes tides on Earth?",
+         ["The Moon's gravitational pull.", "Photosynthesis in plants.", "Because the Earth is round."])
 # => [#<data CLM::Ranking rank=1, candidate="The Moon's gravitational pull.", prob=0.997>, ...]
 
-client.rank(context, answers, question: "Which command fixes the build?", temperature: 0.5)
+CLM.rank(context, answers, question: "Which command fixes the build?", temperature: 0.5)
 ```
 
 ### Without a server: the engine
@@ -118,15 +134,15 @@ client.rank(context, answers, question: "Which command fixes the build?", temper
 
 ```ruby
 engine = CLM::Engine.new(checkpoint: CLM::Hub.download) # reference head, fetched once into ~/.cache/clm
+TicketTriage.decide(ticket, client: engine)            # the same answers the server gives
 engine.rank("What causes tides on Earth?", ["The Moon's gravitational pull.", "Photosynthesis in plants."])
-engine.system_one(state, TRIAGE)                        # the same SystemOneResponse the client returns
 ```
 
-Because the client and the engine share an interface, code written against one runs on the other.
+Because the client and the engine answer the same calls, code written against one runs on the other.
 
 ### Concurrency with Async
 
-Answers take milliseconds, so agents ask many of them. The client's default adapter (Net::HTTP)
+Answers take milliseconds, so agents ask many of them. The client's Net::HTTP transport
 yields to Ruby's fiber scheduler, so calls made inside an Async reactor run concurrently, with no
 threads and no extra configuration:
 
@@ -136,7 +152,7 @@ require "async/semaphore"
 
 Sync do
   semaphore = Async::Semaphore.new(8) # at most 8 requests in flight
-  tickets.map { |t| semaphore.async { client.system_one(t, TRIAGE) } }.map(&:wait)
+  tickets.map { |t| semaphore.async { TicketTriage.decide(t) } }.map(&:wait)
 end
 ```
 
@@ -162,7 +178,9 @@ and the page says so in a banner.
 | `base_url` | `CLM_BASE_URL` | `http://127.0.0.1:8700` |
 | `api_key` | `CLM_API_KEY` | none (the server also reads it to require `Authorization: Bearer <key>`) |
 | `model` | | `clm-latest` |
-| `request_timeout`, `max_retries`, `retry_interval` | | `300`, `2`, `0.1` |
+| `request_timeout` | | `300` seconds |
+| `retry_policy` | | two retries on 408, 429, 5xx and connection failures, backoff 0.5–5 s, `Retry-After` honoured (a Hash of `CLM::RetryPolicy` overrides) |
+| `client` | | a `CLM::Client` for `base_url` (anything answering `predict`) |
 | `embedder_url` | `CLM_EMB_URL` | `http://127.0.0.1:8090/v1/embeddings` |
 | `embedder_model` | `CLM_EMB_MODEL` | `qwen3-8b` |
 | `embedder_max_tokens` | `CLM_EMB_MAX_TOKENS` | `2048` |
@@ -173,10 +191,11 @@ and the page says so in a banner.
 | `logger` | `CLM_LOG_LEVEL` | `Logger` on `$stderr` at `info` |
 
 Errors inherit from `CLM::Error`. Server responses map to `CLM::UnauthorizedError` (401),
-`CLM::UnprocessableEntityError` (422, malformed request or unknown model), `CLM::BadGatewayError` (502,
-encoder unreachable) and `CLM::ServerError`; `CLM::ConnectionError` means the server could not be
-reached at all. The engine raises `CLM::InvalidRequestError`, `CLM::ModelNotFoundError`,
-`CLM::EmbedderError` and `CLM::CheckpointError`.
+`CLM::UnprocessableEntityError` (422, malformed request or unknown model), `CLM::RateLimitedError` (429),
+`CLM::BadGatewayError` (502, encoder unreachable) and `CLM::ServerError`; `CLM::ConnectionError` (and
+its `CLM::TimeoutError`) means the server could not be reached at all. The engine raises
+`CLM::ModelNotFoundError`, `CLM::EmbedderError` and `CLM::CheckpointError`. Malformed questions raise
+`CLM::InvalidRequestError`, which is an `ArgumentError`, as ruby-laya raises for the same mistakes.
 
 ## `clm-serve`
 
@@ -185,6 +204,9 @@ clm-serve [--port 8700] [--emb-url http://127.0.0.1:8090/v1/embeddings] [--emb-m
           [--max-tokens 2048] [--ckpt PATH] [--ckpt-dir DIR] [--model NAME=PATH ...]
           [--action-cache 0.02|512MiB|0] [--no-download] [--no-ui] [--cors]
 ```
+
+`clm-serve` runs on Falcon, which the gem does not depend on: add `gem "falcon"` to use it (the
+command says so if it is missing).
 
 `--ckpt PATH` serves your own head as `clm-latest` (default: the reference head in `~/.cache/clm/`,
 downloaded if missing). `--ckpt-dir DIR` serves every `*.pt` there under its file stem, and
@@ -249,7 +271,7 @@ The served models, liveness (plus encoder reachability and cache statistics), an
 
 | upstream (Python) | this gem (Ruby) |
 | --- | --- |
-| `clm.CLMClient`, `Noul` / `Choice` / `Score` | `CLM::Client`, `CLM::Noul` / `CLM::Choice` / `CLM::Score`, plus the `QuestionSet` builder |
+| `clm.CLMClient`, `Noul` / `Choice` / `Score` | `CLM::Client#predict`, with `CLM::Decision`, `CLM.ask` and `CLM::Questions` in ruby-laya's shape |
 | `clm.schema` | `CLM::Text` (prose rendering), `CLM::Question#candidates` / `#answer`, `CLM::Distribution` |
 | `clm.embedder.Embedder` | `CLM::Embedder` (LRU cache, batches fetched concurrently) |
 | `clm.heads.HeadPair` (torch) | `CLM::HeadPair` + `CLM::Head` (Numo), reading `.pt` files with `CLM::TorchFile` |

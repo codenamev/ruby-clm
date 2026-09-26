@@ -25,7 +25,7 @@ RSpec.describe CLM::Server::Playground do
 
   it "generates Ruby snippets rather than Python" do
     get "/app.js"
-    expect(last_response.body).to include("CLM::Client.new").and include('require "clm"')
+    expect(last_response.body).to include("CLM.ask(").and include(%(require "clm"))
   end
 
   it "serves nothing else from disk" do

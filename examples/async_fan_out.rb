@@ -16,24 +16,20 @@ TICKETS = [
   "Password reset emails never arrive."
 ].freeze
 
-client = CLM::Client.new
-triage = CLM::QuestionSet.build do |q|
-  q.noul :urgent, "Is this urgent?"
-  q.choice :team, "Which team should handle this?",
-           billing: "Charges, invoices, refunds", technical: "Bugs, crashes and outages", sales: "Plans and upgrades"
+class Triage < CLM::Decision
+  noul :urgent, "Is this urgent?"
+  choice :team, "Which team should handle this?",
+         billing: "Charges, invoices, refunds", technical: "Bugs, crashes and outages", sales: "Plans and upgrades"
 end
 
 Sync do
   barrier = Async::Barrier.new
   semaphore = Async::Semaphore.new(8, parent: barrier) # at most 8 requests in flight
 
-  results = TICKETS.map do |ticket|
-    semaphore.async { [ticket, client.system_one(ticket, triage)] }
-  end.map(&:wait)
+  decisions = TICKETS.map { |ticket| semaphore.async { [ticket, Triage.decide(ticket)] } }.map(&:wait)
 
-  results.each do |ticket, response|
-    flag = response[:urgent].true? ? "URGENT" : "      "
-    puts "#{flag} #{response[:team].choice.ljust(9)} #{ticket}"
+  decisions.each do |ticket, triage|
+    puts "#{triage.urgent? ? "URGENT" : "      "} #{triage.team.to_s.ljust(9)} #{ticket}"
   end
 ensure
   barrier.stop
