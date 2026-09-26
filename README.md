@@ -23,8 +23,9 @@ This gem gives you, in idiomatic Ruby and with the same API as its sibling
 - **`clm-serve`**: the API and its playground UI as a Rack app on [Falcon](https://github.com/socketry/falcon).
 
 Every backend answers `predict(state, questions, **options)`, the same seam ruby-laya's clients answer,
-so a decision runs unchanged against `clm-serve`, the in-process engine, a Laya checkpoint or a test
-double.
+so a decision runs unchanged against `clm-serve`, the in-process engine or a test double, and a
+`Laya::Decision` class runs on CLM as it is: `Triage.decide(ticket, client: CLM::Engine.new)`.
+`CLM::Decision` builds exactly the question hashes `Laya::Decision` does.
 
 ## Installation
 
