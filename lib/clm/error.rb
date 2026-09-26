@@ -13,6 +13,9 @@ module CLM
   # The encoder's /v1/embeddings endpoint could not be reached or refused a request.
   class EmbedderError < Error; end
 
+  # A server that could not be reached at all (refused, reset or timed out).
+  class ConnectionError < Error; end
+
   # A checkpoint file that cannot be read as a CLM projection-head pair.
   class CheckpointError < Error; end
 

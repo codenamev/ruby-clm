@@ -47,3 +47,7 @@ RSpec/MultipleMemoizedHelpers:
 
 Style/StringLiteralsInInterpolation:
   EnforcedStyle: double_quotes
+
+# Subclassing Data.define keeps constants and methods in the class's own lexical scope.
+Style/DataInheritance:
+  Enabled: false
