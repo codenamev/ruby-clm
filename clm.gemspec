@@ -19,7 +19,6 @@ Gem::Specification.new do |spec|
   spec.license = "Apache-2.0"
   spec.required_ruby_version = ">= 3.2"
 
-  spec.metadata["homepage_uri"] = spec.homepage
   spec.metadata["source_code_uri"] = spec.homepage
   spec.metadata["changelog_uri"] = "#{spec.homepage}/blob/main/CHANGELOG.md"
   spec.metadata["rubygems_mfa_required"] = "true"
@@ -30,12 +29,12 @@ Gem::Specification.new do |spec|
   spec.require_paths = ["lib"]
 
   spec.add_dependency "async", "~> 2.0"
-  spec.add_dependency "base64", ">= 0.2"
-  spec.add_dependency "falcon", ">= 0.47"
+  spec.add_dependency "base64", "~> 0.2"
+  spec.add_dependency "falcon", "~> 0.47"
   spec.add_dependency "faraday", "~> 2.0"
   spec.add_dependency "faraday-retry", "~> 2.0"
   spec.add_dependency "numo-narray", "~> 0.9"
-  spec.add_dependency "rack", ">= 3.0"
-  spec.add_dependency "rubyzip", ">= 2.3"
+  spec.add_dependency "rack", "~> 3.0"
+  spec.add_dependency "rubyzip", ">= 2.3", "< 4"
   spec.add_dependency "zeitwerk", "~> 2.6"
 end
