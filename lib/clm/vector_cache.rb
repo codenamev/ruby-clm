@@ -2,6 +2,8 @@
 
 require "numo/narray"
 
+require_relative "vector_cache/pool"
+
 module CLM
   # A memory budget reserved up front for the vectors an agent loop keeps asking about.
   #

@@ -2,6 +2,8 @@
 
 require "stringio"
 
+require_relative "pickle/unpickler"
+
 module CLM
   # A small, safe reader for Python pickles (protocols 0-5, binary opcodes).
   #

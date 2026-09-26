@@ -1,7 +1,10 @@
 # frozen_string_literal: true
 
+require "json"
 require "logger"
-require "zeitwerk"
+
+require_relative "clm/version"
+require_relative "clm/error"
 
 # Contrastive Language Models: a System One model that scores candidate actions
 # against a state.  Ask typed questions (noul / choice / score) and get answer
@@ -47,14 +50,27 @@ module CLM
     def logger
       config.logger
     end
-
-    def loader
-      @loader ||= Zeitwerk::Loader.for_gem.tap do |loader|
-        loader.inflector.inflect("clm" => "CLM", "cli" => "CLI")
-      end
-    end
   end
-end
 
-CLM.loader.setup
-require_relative "clm/error"
+  # Plain Ruby, loaded up front.
+  %w[configuration text distribution question noul choice score question_set answer noul_answer
+     choice_answer score_answer usage system_one_response ranking model_info].each do |file|
+    require_relative "clm/#{file}"
+  end
+
+  # Loaded on first use, so a client-only program never pays for Numo, rubyzip, Async or Rack.
+  autoload :Connection, "clm/connection"
+  autoload :Client, "clm/client"
+  autoload :Concurrently, "clm/concurrently"
+  autoload :Pickle, "clm/pickle"
+  autoload :TorchFile, "clm/torch_file"
+  autoload :Head, "clm/head"
+  autoload :HeadPair, "clm/head_pair"
+  autoload :Hub, "clm/hub"
+  autoload :Embedder, "clm/embedder"
+  autoload :VectorCache, "clm/vector_cache"
+  autoload :Engine, "clm/engine"
+  autoload :MockEngine, "clm/mock_engine"
+  autoload :Server, "clm/server"
+  autoload :CLI, "clm/cli"
+end

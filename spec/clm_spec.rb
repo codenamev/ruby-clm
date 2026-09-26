@@ -5,8 +5,14 @@ RSpec.describe CLM do
     expect(CLM::VERSION).to match(/\A\d+\.\d+\.\d+/)
   end
 
-  it "eager loads every file without errors" do
-    expect { described_class.loader.eager_load(force: true) }.not_to raise_error
+  it "loads every autoloaded constant without errors" do
+    autoloaded = described_class.constants.select { described_class.autoload?(_1) }
+    expect { autoloaded.each { described_class.const_get(_1) } }.not_to raise_error
+  end
+
+  it "packages every file under lib/ in a way that loads" do
+    files = Dir[File.expand_path("../lib/**/*.rb", __dir__)]
+    expect { files.each { require _1 } }.not_to raise_error
   end
 
   describe ".configure" do

@@ -3,6 +3,8 @@
 require "json"
 require "rack"
 
+require_relative "server/playground"
+
 module CLM
   # The CLM System One API as a Rack application.
   #

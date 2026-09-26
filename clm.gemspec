@@ -36,5 +36,4 @@ Gem::Specification.new do |spec|
   spec.add_dependency "numo-narray", "~> 0.9"
   spec.add_dependency "rack", "~> 3.0"
   spec.add_dependency "rubyzip", ">= 2.3", "< 4"
-  spec.add_dependency "zeitwerk", "~> 2.6"
 end
