@@ -3,7 +3,7 @@
 require_relative "lib/clm/version"
 
 Gem::Specification.new do |spec|
-  spec.name = "clm"
+  spec.name = "ruby-clm"
   spec.version = CLM::VERSION
   spec.authors = ["Valentino Stoll"]
   spec.email = ["v@codenamev.com"]
