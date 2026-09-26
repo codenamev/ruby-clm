@@ -1,0 +1,280 @@
+{
+ "state": {
+  "ticket": "Customer: my invoice was charged twice and nobody answers the phone!",
+  "tier": "gold"
+ },
+ "questions": {
+  "urgency": {
+   "type": "noul",
+   "instructions": "Is this urgent?"
+  },
+  "department": {
+   "type": "choice",
+   "instructions": "Which team should handle this?",
+   "criteria": {
+    "billing": "Charges, invoices, refunds",
+    "technical": "Bugs and outages",
+    "sales": ""
+   }
+  },
+  "frustration": {
+   "type": "score",
+   "instructions": "How frustrated is the customer?",
+   "criteria": [
+    "Calm",
+    "Frustrated",
+    "Very angry"
+   ]
+  }
+ },
+ "rank": [
+  "What causes tides on Earth?",
+  [
+   "The Moon's gravitational pull.",
+   "Photosynthesis in plants.",
+   "Because the Earth is round."
+  ]
+ ],
+ "cases": {
+  "gelu_depth2": {
+   "answer": {
+    "model": "clm-latest",
+    "answers": {
+     "urgency": {
+      "type": "noul",
+      "noul": 0.535677344787858
+     },
+     "department": {
+      "type": "choice",
+      "choice": "technical",
+      "confidence": 0.9378735085391628,
+      "probabilities": {
+       "billing": 0.0011113905336997134,
+       "technical": 0.9585823390261086,
+       "sales": 0.040306270440191735
+      }
+     },
+     "frustration": {
+      "type": "score",
+      "score": 0.017201342847557654,
+      "confidence": 0.9868156492864002,
+      "legend": {
+       "0": "Calm",
+       "1": "Frustrated",
+       "2": "Very angry"
+      },
+      "probabilities": {
+       "0": 0.9912104328576001,
+       "1": 0.0003777914372420676,
+       "2": 0.008411775705157793
+      }
+     }
+    },
+    "usage": {
+     "billing_units": 3,
+     "input_tokens": 498,
+     "output_tokens": 0
+    }
+   },
+   "cool": {
+    "urgency": {
+     "type": "noul",
+     "noul": 0.5709932281421385
+    },
+    "department": {
+     "type": "choice",
+     "choice": "technical",
+     "confidence": 0.9973506461440382,
+     "probabilities": {
+      "billing": 1.3418587283062026e-06,
+      "technical": 0.9982337640960255,
+      "sales": 0.0017648940452462858
+     }
+    },
+    "frustration": {
+     "type": "score",
+     "score": 0.00014417172137112702,
+     "confidence": 0.9998917622651978,
+     "legend": {
+      "0": "Calm",
+      "1": "Frustrated",
+      "2": "Very angry"
+     },
+     "probabilities": {
+      "0": 0.9999278415101319,
+      "1": 1.4525836529203323e-07,
+      "2": 7.201323150291749e-05
+     }
+    }
+   },
+   "raw": {
+    "urgency": {
+     "type": "noul",
+     "noul": 0.9999999999999971
+    },
+    "department": {
+     "type": "choice",
+     "choice": "billing",
+     "confidence": 0.9001795730709018,
+     "probabilities": {
+      "billing": 0.9334530487139345,
+      "technical": 0.06654687638452711,
+      "sales": 7.490153831151202e-08
+     }
+    },
+    "frustration": {
+     "type": "score",
+     "score": 0.0012272922701661254,
+     "confidence": 0.9981750503648539,
+     "legend": {
+      "0": "Calm",
+      "1": "Frustrated",
+      "2": "Very angry"
+     },
+     "probabilities": {
+      "0": 0.9987833669099025,
+      "1": 0.0012059739100287246,
+      "2": 1.0659180068700391e-05
+     }
+    }
+   },
+   "rank": [
+    {
+     "rank": 1,
+     "candidate": "Because the Earth is round.",
+     "prob": 0.637256764303137
+    },
+    {
+     "rank": 2,
+     "candidate": "Photosynthesis in plants.",
+     "prob": 0.35039948984919433
+    },
+    {
+     "rank": 3,
+     "candidate": "The Moon's gravitational pull.",
+     "prob": 0.012343745847668633
+    }
+   ]
+  },
+  "silu_layernorm_residual": {
+   "answer": {
+    "model": "clm-latest",
+    "answers": {
+     "urgency": {
+      "type": "noul",
+      "noul": 5.0966225752702305e-05
+     },
+     "department": {
+      "type": "choice",
+      "choice": "sales",
+      "confidence": 0.9760155537595142,
+      "probabilities": {
+       "billing": 4.5687009225732284e-06,
+       "technical": 0.01598506212606788,
+       "sales": 0.9840103691730094
+      }
+     },
+     "frustration": {
+      "type": "score",
+      "score": 1.9698662800463835,
+      "confidence": 0.9743053831099798,
+      "legend": {
+       "0": "Calm",
+       "1": "Frustrated",
+       "2": "Very angry"
+      },
+      "probabilities": {
+       "0": 0.013003975360269544,
+       "1": 0.0041257692330772585,
+       "2": 0.9828702554066532
+      }
+     }
+    },
+    "usage": {
+     "billing_units": 3,
+     "input_tokens": 498,
+     "output_tokens": 0
+    }
+   },
+   "cool": {
+    "urgency": {
+     "type": "noul",
+     "noul": 2.5978209562380857e-09
+    },
+    "department": {
+     "type": "choice",
+     "choice": "sales",
+     "confidence": 0.9996042635904454,
+     "probabilities": {
+      "billing": 2.1551202905855837e-11,
+      "technical": 0.00026382425148526633,
+      "sales": 0.9997361757269636
+     }
+    },
+    "frustration": {
+     "type": "score",
+     "score": 1.9996323521574153,
+     "confidence": 0.9997110513114815,
+     "legend": {
+      "0": "Calm",
+      "1": "Frustrated",
+      "2": "Very angry"
+     },
+     "probabilities": {
+      "0": 0.00017501538357231794,
+      "1": 1.7617075440015184e-05,
+      "2": 0.9998073675409876
+     }
+    }
+   },
+   "raw": {
+    "urgency": {
+     "type": "noul",
+     "noul": 0.9999999999999971
+    },
+    "department": {
+     "type": "choice",
+     "choice": "billing",
+     "confidence": 0.9001795730709018,
+     "probabilities": {
+      "billing": 0.9334530487139345,
+      "technical": 0.06654687638452711,
+      "sales": 7.490153831151202e-08
+     }
+    },
+    "frustration": {
+     "type": "score",
+     "score": 0.0012272922701661254,
+     "confidence": 0.9981750503648539,
+     "legend": {
+      "0": "Calm",
+      "1": "Frustrated",
+      "2": "Very angry"
+     },
+     "probabilities": {
+      "0": 0.9987833669099025,
+      "1": 0.0012059739100287246,
+      "2": 1.0659180068700391e-05
+     }
+    }
+   },
+   "rank": [
+    {
+     "rank": 1,
+     "candidate": "Photosynthesis in plants.",
+     "prob": 0.7222156781015056
+    },
+    {
+     "rank": 2,
+     "candidate": "Because the Earth is round.",
+     "prob": 0.24424063608362595
+    },
+    {
+     "rank": 3,
+     "candidate": "The Moon's gravitational pull.",
+     "prob": 0.03354368581486853
+    }
+   ]
+  }
+ }
+}
