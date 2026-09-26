@@ -1,0 +1,10 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "clm"
+
+begin
+  CLM::CLI::Serve.new(ARGV).run
+rescue CLM::Error, OptionParser::ParseError => e
+  abort "clm-serve: #{e.message}"
+end
