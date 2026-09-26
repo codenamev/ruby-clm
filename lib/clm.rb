@@ -12,8 +12,13 @@ require_relative "clm/error"
 #
 #   CLM.configure { |c| c.base_url = "http://127.0.0.1:8700" }
 #
-#   CLM.predict("Customer: my invoice was charged twice!",
-#               { urgency: CLM::Questions.noul("Is this urgent?") })[:urgency].probability # => 0.41
+#   class TicketTriage < CLM::Decision
+#     noul :urgent, "Is this urgent?"
+#     choice :department, "Which team should handle this?", billing: "invoices", technical: "outages"
+#   end
+#
+#   TicketTriage.decide("Customer: my invoice was charged twice!").urgent? # => false
+#   CLM.ask(email).noul(:refund, "Do they want money back?").decide[:refund].probability
 module CLM
   class << self
     # Yields the global configuration for mutation; the shared client is rebuilt from it.
@@ -38,6 +43,13 @@ module CLM
       @client ||= config.client || Client.new(config:)
     end
 
+    # Questions about +state+, built inline and answered by {Ask#decide}.
+    #
+    #   CLM.ask(email).noul(:refund, "Do they want money back?").decide[:refund].probability
+    def ask(state, **)
+      Ask.new(state, **)
+    end
+
     # Every question answered against +state+ by the shared client.
     def predict(...)
       client.predict(...)
@@ -54,7 +66,8 @@ module CLM
   end
 
   # Plain Ruby, loaded up front.
-  %w[configuration text distribution questions question answer usage result ranking model_info].each do |file|
+  %w[configuration text distribution questions question answer usage result ranking model_info decision
+     ask].each do |file|
     require_relative "clm/#{file}"
   end
 

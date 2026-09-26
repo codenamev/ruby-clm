@@ -95,6 +95,20 @@ RSpec.describe CLM::Engine do
     end
   end
 
+  describe "as a decision's client" do
+    it "answers a CLM::Decision exactly as predict does" do
+      triage = Class.new(CLM::Decision) do
+        question "urgency", { "type" => "noul", "instructions" => "Is this urgent?" }
+        choice :department, "Which team should handle this?", billing: "Charges", technical: "Bugs"
+      end
+      decision = triage.decide(reference["state"], client: engine)
+      direct = engine.predict(reference["state"], triage.questions)
+      expect([decision.urgency?, decision.department.to_sym, decision.to_h["answers"]]).to eq(
+        [direct["urgency"].true?, direct[:department].to_sym, direct.to_h["answers"]]
+      )
+    end
+  end
+
   describe "the vector cache" do
     subject(:cached) do
       described_class.new(embedder:, checkpoint: torch_fixture("gelu_depth2.pt"), action_cache: "1MB")
