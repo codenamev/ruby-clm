@@ -33,10 +33,10 @@ RSpec.describe "clm-serve on Falcon" do # rubocop:disable RSpec/DescribeClass
 
   it "answers System One requests through the HTTP client" do
     with_server do
-      response = client.system_one("Customer: my invoice was charged twice!") do |q|
-        q.noul :urgency, "Is this urgent?"
-        q.choice :team, "Which team?", billing: "Charges, invoices, refunds", technical: "Bugs and outages"
-      end
+      questions = { urgency: CLM::Questions.noul("Is this urgent?"),
+                    team: CLM::Questions.choice("Which team?", billing: "Charges, invoices, refunds",
+                                                               technical: "Bugs and outages") }
+      response = client.predict("Customer: my invoice was charged twice!", questions)
       expect(response.answers.keys).to eq(%i[urgency team])
       expect(response.latency_ms).to be_a(Float)
       expect(response[:team].probabilities.values.sum).to be_within(1e-6).of(1.0)
@@ -53,7 +53,7 @@ RSpec.describe "clm-serve on Falcon" do # rubocop:disable RSpec/DescribeClass
 
   it "maps server errors to client exceptions" do
     with_server do
-      expect { client.system_one("s", { ok: CLM::Noul.new }, model: "gpt") }
+      expect { client.predict("s", { ok: CLM::Questions.noul("Ok?") }, model: "gpt") }
         .to raise_error(CLM::UnprocessableEntityError, /unknown model "gpt"/)
     end
   end

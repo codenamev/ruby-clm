@@ -7,7 +7,7 @@ RSpec.describe CLM::Client do
     { status:, body: JSON.generate(body), headers: { "Content-Type" => "application/json" }.merge(headers) }
   end
 
-  describe "#system_one" do
+  describe "#predict" do
     let(:answers) do
       { "urgency" => { "type" => "noul", "noul" => 0.41022 },
         "department" => { "type" => "choice", "choice" => "billing", "confidence" => 0.87756,
@@ -22,19 +22,19 @@ RSpec.describe CLM::Client do
     end
 
     it "posts the state and wire-format questions with the bearer key" do
-      client.system_one("charged twice", { urgency: CLM::Noul.new(instructions: "Urgent?") }, temperature: 0.5)
+      client.predict("charged twice", { urgency: CLM::Questions.noul("Urgent?") }, temperature: 0.5)
       expect(WebMock).to have_requested(:post, "http://clm.test/v1/systemone")
         .with(headers: { "Authorization" => "Bearer sekrit" },
               body: { state: "charged twice", model: "clm-latest", temperature: 0.5,
                       questions: { urgency: { type: "noul", instructions: "Urgent?" } } })
     end
 
-    it "returns typed answers keyed like the questions" do
-      response = client.system_one("charged twice") do |q|
-        q.noul :urgency, "Urgent?"
-        q.choice "department", "Which team?", billing: "Charges", technical: "Bugs"
-      end
-      expect(response[:urgency].noul).to eq(0.41022)
+    it "returns typed answers keyed like the questions" do # rubocop:disable RSpec/MultipleExpectations
+      response = client.predict("charged twice",
+                                { urgency: CLM::Questions.noul("Urgent?"),
+                                  "department" => CLM::Questions.choice("Which team?", billing: "Charges") })
+      expect(response.answers.keys).to eq([:urgency, "department"])
+      expect(response[:urgency].probability).to eq(0.41022)
       expect(response["department"]).to have_attributes(choice: "billing", probabilities: include("billing" => 0.93878))
       expect(response).to have_attributes(model: "clm-latest", latency_ms: 58.1)
       expect(response.usage).to eq(CLM::Usage.new(billing_units: 2, input_tokens: 38, output_tokens: 0))
@@ -76,7 +76,7 @@ RSpec.describe CLM::Client do
   describe "errors" do
     it "raises the status's error class with the server's detail" do
       stub_request(:post, "http://clm.test/v1/systemone").to_return(json({ detail: "invalid API key" }, status: 401))
-      expect { client.system_one("s", { ok: CLM::Noul.new }) }
+      expect { client.predict("s", { ok: CLM::Questions.noul("Ok?") }) }
         .to raise_error(CLM::UnauthorizedError, "401: invalid API key") { expect(_1.status).to eq(401) }
     end
 
@@ -97,16 +97,28 @@ RSpec.describe CLM::Client do
     end
 
     it "validates questions before sending anything" do
-      expect { client.system_one("s", {}) }.to raise_error(CLM::InvalidRequestError)
+      expect { client.predict("s", {}) }.to raise_error(CLM::InvalidRequestError)
+    end
+
+    it "reports a question the server left unanswered" do
+      stub_request(:post, "http://clm.test/v1/systemone").to_return(json({ model: "clm-latest", answers: {} }))
+      expect { client.predict("s", { ok: CLM::Questions.noul("Ok?") }) }
+        .to raise_error(CLM::Error, 'the server did not answer "ok"')
     end
   end
 
-  describe "CLM.system_one" do
-    it "uses the global configuration" do
+  describe "CLM.predict" do
+    it "uses a client for the global configuration" do
       CLM.configure { |c| c.base_url = "http://global.test" }
       stub_request(:post, "http://global.test/v1/systemone")
         .to_return(json({ model: "clm-latest", answers: { "ok" => { type: "noul", noul: 0.9 } } }))
-      expect(CLM.system_one("s") { |q| q.noul :ok }[:ok].noul).to eq(0.9)
+      expect(CLM.predict("s", { ok: CLM::Questions.noul("Ok?") })[:ok].probability).to eq(0.9)
+    end
+
+    it "uses the configured client when there is one" do
+      double = Object.new.tap { |d| d.define_singleton_method(:predict) { |state, *| "predicted #{state}" } }
+      CLM.configure { |c| c.client = double }
+      expect(CLM.predict("s", {})).to eq("predicted s")
     end
   end
 end

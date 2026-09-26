@@ -16,7 +16,7 @@ module CLM
     DEFAULT_EMBEDDER_MAX_TOKENS = 2048
 
     # Client
-    attr_accessor :base_url, :api_key, :model, :request_timeout, :retry_policy
+    attr_accessor :base_url, :api_key, :model, :request_timeout, :retry_policy, :client
     # Engine / server
     attr_accessor :embedder_url, :embedder_model, :embedder_max_tokens, :embedder_api_key,
                   :checkpoint, :checkpoint_dir, :action_cache

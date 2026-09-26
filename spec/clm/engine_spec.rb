@@ -9,12 +9,14 @@ RSpec.describe CLM::Engine do
   let(:embedder) { CLM::Embedder.new(url: FakeEmbeddings::EMBEDDINGS_URL) }
   let(:reference) { JSON.parse(File.read(torch_fixture("expected_engine.json"))) }
 
+  let(:ok_question) { { ok: CLM::Questions.noul("Ok?") } }
+
   before { stub_embeddings }
 
   # Wire-format answers compared number by number, within float32 noise.
   def match_answers(expected)
     match(expected.transform_values do |answer|
-      answer.to_h { |key, value| [key.to_sym, approximately(value)] }
+      answer.transform_values { approximately(_1) }
     end)
   end
 
@@ -37,18 +39,18 @@ RSpec.describe CLM::Engine do
       let(:expected) { reference["cases"][name] }
 
       it "answers like the Python engine" do
-        response = engine.system_one(reference["state"], reference["questions"])
+        response = engine.predict(reference["state"], reference["questions"])
         expect(wire(response)).to match_answers(expected["answer"]["answers"])
         expect(response.model).to eq("clm-latest")
       end
 
       it "applies the temperature like the Python engine" do
-        response = engine.system_one(reference["state"], reference["questions"], temperature: 0.5)
+        response = engine.predict(reference["state"], reference["questions"], temperature: 0.5)
         expect(wire(response)).to match_answers(expected["cool"])
       end
 
       it "answers the raw ablation like the Python engine" do
-        response = engine.system_one(reference["state"], reference["questions"], model: "clm-raw")
+        response = engine.predict(reference["state"], reference["questions"], model: "clm-raw")
         expect(wire(response)).to match_answers(expected["raw"])
       end
 
@@ -60,36 +62,35 @@ RSpec.describe CLM::Engine do
     end
   end
 
-  describe "#system_one" do
+  describe "#predict" do
     it "keys answers by the caller's ids and counts usage" do
-      response = engine.system_one("Customer: charged twice!") do |q|
-        q.noul :urgency, "Is this urgent?"
-        q.choice :team, "Which team?", billing: "Charges", technical: "Bugs"
-      end
+      response = engine.predict("Customer: charged twice!",
+                                { urgency: CLM::Questions.noul("Is this urgent?"),
+                                  team: CLM::Questions.choice("Which team?", billing: "Charges", technical: "Bugs") })
       expect(response.answers.keys).to eq(%i[urgency team])
       expect(response.usage).to have_attributes(billing_units: 2, output_tokens: 0, input_tokens: be_positive)
     end
 
     it "spends no encoder tokens on texts it has already embedded" do
-      engine.system_one("state") { |q| q.noul :ok, "Ok?" }
-      expect(engine.system_one("state") { |q| q.noul :ok, "Ok?" }.usage.input_tokens).to eq(0)
+      engine.predict("state", ok_question)
+      expect(engine.predict("state", ok_question).usage.input_tokens).to eq(0)
     end
 
     it "rejects unknown models" do
-      expect { engine.system_one("s", { ok: CLM::Noul.new }, model: "gpt") }
+      expect { engine.predict("s", ok_question, model: "gpt") }
         .to raise_error(CLM::ModelNotFoundError, /unknown model "gpt"; available: \["clm-latest", "clm-raw"\]/)
     end
 
     it "rejects temperatures outside (0, 100]" do
       [0, 101, "hot"].each do |temperature|
-        expect { engine.system_one("s", { ok: CLM::Noul.new }, temperature:) }
+        expect { engine.predict("s", ok_question, temperature:) }
           .to raise_error(CLM::InvalidRequestError, /temperature must be/)
       end
     end
 
     it "rejects empty and malformed questions" do
-      expect { engine.system_one("s", {}) }.to raise_error(CLM::InvalidRequestError, /must not be empty/)
-      expect { engine.system_one("s", { x: { type: "score", criteria: ["one"] } }) }
+      expect { engine.predict("s", {}) }.to raise_error(CLM::InvalidRequestError, /must not be empty/)
+      expect { engine.predict("s", { x: { type: "score", criteria: ["one"] } }) }
         .to raise_error(CLM::InvalidRequestError, />= 2 levels/)
     end
   end
@@ -100,14 +101,14 @@ RSpec.describe CLM::Engine do
     end
 
     it "gives the same answers as the uncached engine" do
-      uncached = JSON.parse(JSON.generate(wire(engine.system_one(reference["state"], reference["questions"]))))
+      uncached = JSON.parse(JSON.generate(wire(engine.predict(reference["state"], reference["questions"]))))
       2.times do
-        expect(wire(cached.system_one(reference["state"], reference["questions"]))).to match_answers(uncached)
+        expect(wire(cached.predict(reference["state"], reference["questions"]))).to match_answers(uncached)
       end
     end
 
     it "reserves projection and raw pools and counts hits" do
-      2.times { cached.system_one("state") { |q| q.noul :ok, "Ok?" } }
+      2.times { cached.predict("state", ok_question) }
       expect(cached.cache.stats[:pools].keys).to eq(%w[4 16])
       expect(cached.cache.stats[:pools]["4"]).to include(hits: 3, misses: 3)
     end

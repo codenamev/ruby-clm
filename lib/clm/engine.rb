@@ -5,7 +5,7 @@ module CLM
   # out, no HTTP server needed.  It answers the same calls as CLM::Client.
   #
   #   engine = CLM::Engine.new # embedder at CLM_EMB_URL, the reference head
-  #   engine.system_one(state) { |q| q.noul :ok, "Is this fine?" }[:ok].noul
+  #   engine.predict(state, { ok: CLM::Questions.noul("Is this fine?") })[:ok].probability
   #   engine.rank("What causes tides?", ["The Moon's gravity.", "Photosynthesis."])
   #
   # For each question the state (with the question's instructions appended) goes
@@ -48,27 +48,27 @@ module CLM
       name == RAW_MODEL || heads.key?(name)
     end
 
-    # Every question answered against one +state+; see Client#system_one.
-    def system_one(state, questions = nil, model: nil, temperature: nil, &)
+    # Every question answered against one +state+; see Client#predict.
+    def predict(state, questions, model: nil, temperature: nil)
       model ||= DEFAULT_MODEL
       temperature = validate_temperature(temperature || 1.0)
       head = resolve(model)
-      set = QuestionSet.coerce(questions, &)
+      set = Question.build_all(questions)
       tokens = 0
       state_vectors, candidate_vectors, scale = vectors(head, set.map { |_, q| q.state_text(state) },
                                                         set.flat_map { |_, q| q.candidates }) { tokens += _1 }
-      SystemOneResponse.new(model:, answers: score(set, state_vectors, candidate_vectors, scale / temperature),
-                            usage: Usage.new(billing_units: set.size, input_tokens: tokens, output_tokens: 0))
+      Result.new(model:, answers: score(set, state_vectors, candidate_vectors, scale / temperature),
+                 usage: Usage.new(billing_units: set.size, input_tokens: tokens, output_tokens: 0))
     end
-    alias answer system_one
+    alias system_one predict
 
     # Ranks free-form +answers+ against +context+ (plus an optional +question+),
     # best first.  The state head sees +context + question+, the action head sees
     # each answer verbatim.
     def rank(context, answers, question: nil, model: nil, temperature: nil)
       answers = Array(answers)
-      choice = Choice.new(instructions: question, criteria: answers.each_with_index.to_h { |a, i| [i.to_s, a] })
-      probabilities = system_one(context, { rank: choice }, model:, temperature:)[:rank].probabilities
+      choice = Questions.choice(question, answers.each_with_index.to_h { |a, i| [i.to_s, a] })
+      probabilities = predict(context, { rank: choice }, model:, temperature:)[:rank].probabilities
       probabilities.sort_by { |_, p| -p }.each_with_index.map do |(index, prob), position|
         Ranking.new(rank: position + 1, candidate: answers[Integer(index)], prob:)
       end

@@ -4,8 +4,9 @@ module CLM
   # Base class of every error this library raises.
   class Error < StandardError; end
 
-  # A question, answer or request that does not follow the System One schema.
-  class InvalidRequestError < Error; end
+  # A question or request that does not follow the System One schema.  It is an ArgumentError,
+  # as ruby-laya raises for the same mistakes, so code written against either catches both.
+  class InvalidRequestError < ArgumentError; end
 
   # A model name that no loaded checkpoint serves.
   class ModelNotFoundError < InvalidRequestError; end

@@ -44,7 +44,7 @@ RSpec.describe CLM::Server do
     it "round-trips through the HTTP client" do
       post_json "/v1/systemone", { state: "s", questions:, temperature: 0.5 }
       client_view = CLM::Answer.from_h(json["answers"]["urgency"])
-      expect(client_view).to eq(engine.system_one("s", questions, temperature: 0.5)[:urgency])
+      expect(client_view).to eq(engine.predict("s", questions, temperature: 0.5)[:urgency])
     end
 
     it "refuses bodies without state or questions" do
@@ -59,7 +59,8 @@ RSpec.describe CLM::Server do
 
     it "refuses malformed questions" do
       post_json "/v1/systemone", { state: "s", questions: { x: { type: "essay" } } }
-      expect([last_response.status, json["detail"]]).to match([422, /\Ainvalid request: unknown question type/])
+      expect([last_response.status,
+              json["detail"]]).to match([422, /\Ainvalid request: question "x": unknown question type/])
     end
 
     it "refuses unknown models and bad temperatures" do

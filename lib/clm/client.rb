@@ -28,21 +28,19 @@ module CLM
 
     # Every question answered against one +state+ (a string, hash or array), in one request.
     #
-    # +questions+ is a hash of id => question (Noul / Choice / Score objects or
-    # wire-format hashes) and/or a QuestionSet builder block.  +temperature+
-    # (server default 1.0) flattens (> 1) or sharpens (< 1) the distributions.
-    def system_one(state, questions = nil, model: nil, temperature: nil, &)
-      set = QuestionSet.coerce(questions, &)
-      body = { state:, model: model || self.model, questions: set.to_h, temperature: }.compact
+    # +questions+ maps ids to wire-format questions, as {Questions} builds them.  This is the
+    # same +predict(state, questions, **options)+ a ruby-laya client answers, so anything that
+    # drives one drives the other.  +temperature+ (server default 1.0) flattens (> 1) or
+    # sharpens (< 1) the distributions.
+    def predict(state, questions, model: nil, temperature: nil)
+      asked = Question.build_all(questions)
+      body = { state:, model: model || self.model, temperature:,
+               questions: asked.to_h { |id, question| [id.to_s, question.to_h] } }.compact
       response = connection.post("/v1/systemone", body)
-      json = response.body
-      SystemOneResponse.new(
-        model: json.fetch("model"),
-        answers: set.rekey(json.fetch("answers").transform_values { Answer.from_h(_1) }),
-        usage: Usage.from_h(json["usage"]),
-        latency_ms: response.headers[LATENCY_HEADER]&.to_f
-      )
+      Result.new(model: response.body.fetch("model"), answers: answers_for(asked, response.body.fetch("answers")),
+                 usage: Usage.from_h(response.body["usage"]), latency_ms: response.headers[LATENCY_HEADER]&.to_f)
     end
+    alias system_one predict
 
     # Ranks free-form +answers+ against +context+ (plus an optional +question+), best first.
     def rank(context, answers, question: nil, model: nil, temperature: nil)
@@ -59,6 +57,15 @@ module CLM
       connection.get("/health", timeout: 5).body.then { _1.is_a?(Hash) && _1["ok"] == true }
     rescue Error
       false
+    end
+
+    private
+
+    # Server answers keyed by the caller's own ids, so a question asked as :urgency answers as :urgency.
+    def answers_for(asked, answers)
+      asked.to_h { |id, _| [id, Answer.from_h(answers.fetch(id.to_s))] }
+    rescue KeyError => e
+      raise Error, "the server did not answer #{e.key.inspect}"
     end
   end
 end

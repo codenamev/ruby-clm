@@ -10,9 +10,8 @@ RSpec.describe CLM::MockEngine do
   let(:app) { CLM::Server.new(engine) }
 
   it "answers typed questions from character n-grams" do
-    response = engine.system_one("The invoice was charged twice") do |q|
-      q.choice :topic, "What is this about?", billing: "an invoice charged twice", weather: "sunny skies"
-    end
+    topic = CLM::Questions.choice("What is this about?", billing: "an invoice charged twice", weather: "sunny skies")
+    response = engine.predict("The invoice was charged twice", { topic: })
     expect(response[:topic].choice).to eq("billing")
     expect(response.usage.input_tokens).to be_positive
   end
@@ -23,7 +22,7 @@ RSpec.describe CLM::MockEngine do
   end
 
   it "answers the raw model flatter" do
-    ask = ->(model) { engine.system_one("tea", { x: CLM::Choice.new(criteria: { a: "tea", b: "car" }) }, model:) }
+    ask = ->(model) { engine.predict("tea", { x: CLM::Questions.choice(nil, a: "tea", b: "car") }, model:) }
     expect(ask.call("clm-raw")[:x].confidence).to be < ask.call("clm-latest")[:x].confidence
   end
 

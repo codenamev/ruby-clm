@@ -6,21 +6,20 @@ require "logger"
 require_relative "clm/version"
 require_relative "clm/error"
 
-# Contrastive Language Models: a System One model that scores candidate actions
-# against a state.  Ask typed questions (noul / choice / score) and get answer
-# distributions back, from a CLM server or from the in-process engine.
+# Contrastive Language Models: a System One model that scores candidate actions against a
+# state.  Ask typed questions (noul / choice / score) and get answer distributions back, from
+# a CLM server or from the in-process engine.
 #
 #   CLM.configure { |c| c.base_url = "http://127.0.0.1:8700" }
 #
-#   response = CLM.system_one("Customer: my invoice was charged twice!") do |q|
-#     q.noul :urgency, "Is this urgent?"
-#   end
-#   response[:urgency].noul # => 0.41
+#   CLM.predict("Customer: my invoice was charged twice!",
+#               { urgency: CLM::Questions.noul("Is this urgent?") })[:urgency].probability # => 0.41
 module CLM
   class << self
-    # Yields the global configuration for mutation.
+    # Yields the global configuration for mutation; the shared client is rebuilt from it.
     def configure
       yield config
+      @client = nil
     end
 
     def config
@@ -30,19 +29,21 @@ module CLM
     # Restores every setting to its default (mostly useful in tests).
     def reset!
       @config = nil
+      @client = nil
     end
 
-    # A new HTTP client for the CLM System One API.
-    def client(**)
-      Client.new(**)
+    # The shared client: +config.client+ when one is set (an {Engine}, a {Client}, or anything
+    # answering +predict(state, questions, **options)+), else a {Client} for +config.base_url+.
+    def client
+      @client ||= config.client || Client.new(config:)
     end
 
-    # One request to the configured server: every question answered against +state+.
-    def system_one(...)
-      client.system_one(...)
+    # Every question answered against +state+ by the shared client.
+    def predict(...)
+      client.predict(...)
     end
 
-    # Rank free-form candidates against +context+ on the configured server.
+    # Rank free-form candidates against +context+ with the shared client.
     def rank(...)
       client.rank(...)
     end
@@ -53,8 +54,7 @@ module CLM
   end
 
   # Plain Ruby, loaded up front.
-  %w[configuration text distribution question noul choice score question_set answer noul_answer
-     choice_answer score_answer usage system_one_response ranking model_info].each do |file|
+  %w[configuration text distribution questions question answer usage result ranking model_info].each do |file|
     require_relative "clm/#{file}"
   end
 

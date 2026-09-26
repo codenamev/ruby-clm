@@ -98,8 +98,8 @@ module CLM
       end
 
       timed do
-        engine.system_one(body["state"], body["questions"], model: body["model"] || Engine::DEFAULT_MODEL,
-                                                            temperature: temperature(body)).to_h
+        engine.predict(body["state"], body["questions"], model: body["model"] || Engine::DEFAULT_MODEL,
+                                                         temperature: temperature(body)).to_h
       end
     end
 
