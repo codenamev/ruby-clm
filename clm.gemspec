@@ -30,7 +30,6 @@ Gem::Specification.new do |spec|
 
   spec.add_dependency "async", "~> 2.0"
   spec.add_dependency "base64", "~> 0.2"
-  spec.add_dependency "falcon", "~> 0.47"
   spec.add_dependency "logger", "~> 1.6"
   spec.add_dependency "numo-narray", "~> 0.9"
   spec.add_dependency "rack", "~> 3.0"

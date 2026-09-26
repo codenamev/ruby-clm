@@ -5,6 +5,7 @@ source "https://rubygems.org"
 gemspec
 
 group :development, :test do
+  gem "falcon", "~> 0.47" # clm-serve and the integration spec
   gem "rack-test", "~> 2.1"
   gem "rake", "~> 13.0"
   gem "rspec", "~> 3.13"

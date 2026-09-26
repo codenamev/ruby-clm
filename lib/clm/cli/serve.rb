@@ -13,10 +13,18 @@ module CLM
       # Starts +app+ on Falcon inside the current Async reactor and returns the
       # server task; many servers (or clients) can share one reactor.
       def self.start(app, host:, port:)
-        require "falcon"
-        require "async/http/endpoint"
+        require_falcon!
         endpoint = Async::HTTP::Endpoint.parse("http://#{host}:#{port}")
         Falcon::Server.new(Falcon::Server.rack_middleware(app, cache: false), endpoint).run
+      end
+
+      # Falcon is not a dependency of the gem, since only clm-serve needs it.
+      def self.require_falcon!
+        require "falcon"
+        require "async/http/endpoint"
+      rescue LoadError
+        raise ConfigurationError, "clm-serve runs on Falcon, which is not installed: " \
+                                  "add `gem \"falcon\"` to your Gemfile (or `gem install falcon`)"
       end
 
       # Stops a server task by stopping what it waits on (its accept loops, and
@@ -43,6 +51,7 @@ module CLM
 
       def run
         parse!
+        self.class.require_falcon! if @launcher.equal?(FALCON)
         engine = build_engine
         app = Server.new(engine, api_key: @env["CLM_API_KEY"], cors: options[:cors], ui: options[:ui])
         banner(engine)

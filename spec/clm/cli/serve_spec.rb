@@ -69,4 +69,21 @@ RSpec.describe CLM::CLI::Serve do
       expect(ruby("-e", 'require "clm"; CLM::CLI::Serve; print respond_to?(:Sync, true)')).to eq("true")
     end
   end
+
+  describe ".require_falcon!" do
+    it "explains how to get Falcon when it is missing" do
+      allow(described_class).to receive(:require).and_call_original
+      allow(described_class).to receive(:require).with("falcon").and_raise(LoadError)
+      expect { described_class.require_falcon! }
+        .to raise_error(CLM::ConfigurationError, /add `gem "falcon"` to your Gemfile/)
+    end
+
+    it "checks before loading any model, so clm-serve fails fast" do
+      allow(described_class).to receive(:require_falcon!).and_raise(CLM::ConfigurationError, "no falcon")
+      allow(CLM::Hub).to receive(:download)
+      cli = described_class.new(["--no-download"], env:, out:)
+      expect { cli.run }.to raise_error(CLM::ConfigurationError, "no falcon")
+      expect(CLM::Hub).not_to have_received(:download)
+    end
+  end
 end
