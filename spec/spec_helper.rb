@@ -12,5 +12,8 @@ RSpec.configure do |config|
   config.order = :random
   Kernel.srand config.seed
 
-  config.before { CLM.reset! }
+  config.before do
+    CLM.reset!
+    CLM.config.retry_policy = { backoff_initial: 0.0 } # retry as in production, without the waits
+  end
 end

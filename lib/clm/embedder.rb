@@ -29,8 +29,7 @@ module CLM
       @batch_size = batch_size
       @concurrency = concurrency
       @connection = Connection.new(base_url: @url, api_key: api_key || config.embedder_api_key,
-                                   timeout: timeout || config.request_timeout, max_retries: config.max_retries,
-                                   retry_interval: config.retry_interval)
+                                   timeout: timeout || config.request_timeout, retry: config.retry_policy)
       @cache = {}
       @mutex = Mutex.new
     end

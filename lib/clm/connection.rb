@@ -1,57 +1,106 @@
 # frozen_string_literal: true
 
-require "faraday"
-require "faraday/retry"
+require "json"
+require "net/http"
 
 module CLM
-  # A JSON-over-HTTP connection with retries and CLM's error mapping.
+  # JSON over HTTP with retries and CLM's error mapping, on the standard library.
   #
-  # The default adapter is Net::HTTP, which yields to the fiber scheduler, so many
-  # requests made inside an Async reactor run concurrently with no extra setup:
+  # Net::HTTP yields to the fiber scheduler, so requests made inside an Async reactor run
+  # concurrently with no extra setup:
   #
-  #   Async do |task|
-  #     tickets.map { |t| task.async { client.system_one(t, questions) } }.map(&:wait)
+  #   Sync do |task|
+  #     tickets.map { |t| task.async { client.predict(t, questions) } }.map(&:wait)
   #   end
+  #
+  # The +transport+ is the seam for tests and in-process backends: anything answering
+  # +call(method:, url:, headers:, body:, timeout:)+ with +[status, body, headers]+.
   class Connection
-    RETRY_EXCEPTIONS = [Faraday::ConnectionFailed, Faraday::RetriableResponse, Errno::ECONNREFUSED,
-                        Errno::ECONNRESET].freeze
-    RETRY_STATUSES = [503].freeze
+    Response = Data.define(:status, :body, :headers)
 
-    attr_reader :base_url
-
-    def initialize(base_url:, api_key: nil, timeout: 300, max_retries: 2, retry_interval: 0.1,
-                   adapter: Faraday.default_adapter)
-      @base_url = base_url.to_s.chomp("/")
-      @faraday = Faraday.new(@base_url) do |f|
-        f.options.timeout = timeout
-        f.headers["Authorization"] = "Bearer #{api_key}" if api_key
-        f.request :json
-        f.request :retry, max: max_retries, interval: retry_interval, backoff_factor: 2,
-                          methods: %i[get post], exceptions: RETRY_EXCEPTIONS, retry_statuses: RETRY_STATUSES
-        f.response :json, content_type: /\bjson$/
-        f.adapter(*Array(adapter))
+    NET_HTTP = lambda do |method:, url:, headers:, body:, timeout:|
+      uri = URI(url)
+      Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == "https", open_timeout: timeout,
+                                          read_timeout: timeout, write_timeout: timeout) do |http|
+        request = (method == :get ? Net::HTTP::Get : Net::HTTP::Post).new(uri, headers)
+        request.body = body if body
+        response = http.request(request)
+        [response.code.to_i, response.body.to_s, response.each_header.to_h]
       end
     end
 
+    attr_reader :base_url, :retry_policy
+
+    def initialize(base_url:, api_key: nil, timeout: 300, retry: nil, transport: NET_HTTP,
+                   sleeper: ->(seconds) { sleep(seconds) }, random: -> { rand },
+                   clock: -> { Process.clock_gettime(Process::CLOCK_MONOTONIC) })
+      @base_url = base_url.to_s.chomp("/")
+      @headers = { "Content-Type" => "application/json", "Accept" => "application/json",
+                   "User-Agent" => "ruby-clm/#{VERSION}" }
+      @headers["Authorization"] = "Bearer #{api_key}" if api_key
+      @timeout = timeout
+      @retry_policy = RetryPolicy.from(binding.local_variable_get(:retry))
+      @transport = transport
+      @sleeper = sleeper
+      @random = random
+      @clock = clock
+    end
+
+    # +path+ is joined to the base URL, unless it is itself a full URL.
     def get(path, timeout: nil)
-      request(:get, path, nil, timeout)
+      request(:get, path, nil, timeout || @timeout)
     end
 
     def post(path, body)
-      request(:post, path, body, nil)
+      request(:post, path, JSON.generate(body), @timeout)
     end
 
     private
 
     def request(method, path, body, timeout)
-      response = @faraday.run_request(method, path, body, nil) do |req|
-        req.options.timeout = timeout if timeout
-      end
-      raise error_for(response) unless response.success?
+      url = path.start_with?("http://", "https://") ? path : "#{base_url}#{path}"
+      status, raw, headers = with_retries { @transport.call(method:, url:, headers: @headers, body:, timeout:) }
+      response = Response.new(status:, body: parse(raw, headers), headers: headers.to_h)
+      raise error_for(response) unless (200..299).cover?(status)
 
       response
-    rescue Faraday::ConnectionFailed, Faraday::TimeoutError => e
-      raise ConnectionError, "CLM server unreachable at #{base_url}: #{e.message}"
+    end
+
+    def with_retries
+      started = @clock.call
+      (0..).each do |attempt|
+        reply = yield
+        return reply unless retry_policy.retryable_status?(reply[0]) && retry?(attempt, started)
+
+        pause(attempt, reply[2])
+      rescue StandardError => e
+        raise transport_error(e) unless retry_policy.retryable_error?(e) && retry?(attempt, started)
+
+        pause(attempt, {})
+      end
+    end
+
+    def pause(attempt, headers)
+      @sleeper.call(retry_policy.delay(attempt, headers: headers.to_h, random: @random))
+    end
+
+    def retry?(attempt, started)
+      budget = retry_policy.total_timeout
+      attempt < retry_policy.max_retries && (budget.nil? || @clock.call - started < budget)
+    end
+
+    def transport_error(error)
+      return error if error.is_a?(CLM::Error)
+
+      klass = retry_policy.timeout?(error) ? TimeoutError : ConnectionError
+      klass.new("CLM server unreachable at #{base_url}: #{error.message} (#{error.class})")
+    end
+
+    def parse(raw, headers)
+      type = headers.to_h.find { |name, _| name.to_s.casecmp?("content-type") }&.last.to_s
+      type.include?("json") && !raw.empty? ? JSON.parse(raw) : raw
+    rescue JSON::ParserError
+      raw
     end
 
     def error_for(response)

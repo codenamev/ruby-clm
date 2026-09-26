@@ -14,7 +14,7 @@ module CLM
   #
   # The in-process CLM::Engine answers the same calls without a server.
   class Client
-    LATENCY_HEADER = "X-CLM-Latency-Ms"
+    LATENCY_HEADER = "x-clm-latency-ms"
 
     attr_reader :model, :connection
 
@@ -22,8 +22,7 @@ module CLM
       @model = model || config.model
       @connection = Connection.new(
         base_url: base_url || config.base_url, api_key: api_key || config.api_key,
-        timeout: timeout || config.request_timeout, max_retries: config.max_retries,
-        retry_interval: config.retry_interval, **connection_options
+        timeout: timeout || config.request_timeout, retry: config.retry_policy, **connection_options
       )
     end
 

@@ -3,8 +3,6 @@
 RSpec.describe CLM::Embedder do
   subject(:embedder) { described_class.new(url: FakeEmbeddings::EMBEDDINGS_URL, batch_size: 2) }
 
-  before { CLM.config.retry_interval = 0 }
-
   describe "#embed" do
     let!(:stub) { stub_embeddings }
 

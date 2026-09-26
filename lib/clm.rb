@@ -59,6 +59,7 @@ module CLM
   end
 
   # Loaded on first use, so a client-only program never pays for Numo, rubyzip, Async or Rack.
+  autoload :RetryPolicy, "clm/retry_policy"
   autoload :Connection, "clm/connection"
   autoload :Client, "clm/client"
   autoload :Concurrently, "clm/concurrently"

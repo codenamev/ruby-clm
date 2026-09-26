@@ -13,8 +13,14 @@ module CLM
   # The encoder's /v1/embeddings endpoint could not be reached or refused a request.
   class EmbedderError < Error; end
 
-  # A server that could not be reached at all (refused, reset or timed out).
+  # A setting that cannot work, such as a malformed retry policy.
+  class ConfigurationError < Error; end
+
+  # A server that could not be reached at all (refused, reset or unresolvable).
   class ConnectionError < Error; end
+
+  # A server that did not answer in time.
+  class TimeoutError < ConnectionError; end
 
   # A checkpoint file that cannot be read as a CLM projection-head pair.
   class CheckpointError < Error; end
@@ -40,6 +46,7 @@ module CLM
 
   class UnauthorizedError < APIError; end
   class UnprocessableEntityError < APIError; end
+  class RateLimitedError < APIError; end
   class ServerError < APIError; end
   class BadGatewayError < ServerError; end
   class ServiceUnavailableError < ServerError; end
@@ -47,6 +54,7 @@ module CLM
   APIError::STATUSES.merge!(
     401 => UnauthorizedError,
     422 => UnprocessableEntityError,
+    429 => RateLimitedError,
     502 => BadGatewayError,
     503 => ServiceUnavailableError
   ).freeze

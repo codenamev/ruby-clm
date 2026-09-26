@@ -16,7 +16,7 @@ module CLM
     DEFAULT_EMBEDDER_MAX_TOKENS = 2048
 
     # Client
-    attr_accessor :base_url, :api_key, :model, :request_timeout, :max_retries, :retry_interval
+    attr_accessor :base_url, :api_key, :model, :request_timeout, :retry_policy
     # Engine / server
     attr_accessor :embedder_url, :embedder_model, :embedder_max_tokens, :embedder_api_key,
                   :checkpoint, :checkpoint_dir, :action_cache
@@ -27,8 +27,7 @@ module CLM
       @api_key = env["CLM_API_KEY"]
       @model = DEFAULT_MODEL
       @request_timeout = 300
-      @max_retries = 2
-      @retry_interval = 0.1
+      @retry_policy = nil # RetryPolicy defaults; a Hash of overrides or a RetryPolicy
 
       @embedder_url = env.fetch("CLM_EMB_URL", DEFAULT_EMBEDDER_URL)
       @embedder_model = env.fetch("CLM_EMB_MODEL", DEFAULT_EMBEDDER_MODEL)

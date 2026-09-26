@@ -15,7 +15,6 @@ RSpec.describe CLM::Server do
   end
 
   before do
-    CLM.config.retry_interval = 0
     stub_embeddings
     stub_request(:get, "http://encoder.test/v1/models").to_return(status: 200, body: "{}")
   end

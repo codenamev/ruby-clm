@@ -3,8 +3,6 @@
 RSpec.describe CLM::Client do
   subject(:client) { described_class.new(base_url: "http://clm.test/", api_key: "sekrit") }
 
-  before { CLM.config.retry_interval = 0 }
-
   def json(body, status: 200, headers: {})
     { status:, body: JSON.generate(body), headers: { "Content-Type" => "application/json" }.merge(headers) }
   end
@@ -94,7 +92,7 @@ RSpec.describe CLM::Client do
     end
 
     it "raises ConnectionError when the server is unreachable" do
-      stub_request(:get, "http://clm.test/v1/models").to_raise(Faraday::ConnectionFailed.new("refused"))
+      stub_request(:get, "http://clm.test/v1/models").to_raise(Errno::ECONNREFUSED)
       expect { client.models }.to raise_error(CLM::ConnectionError, %r{unreachable at http://clm.test})
     end
 
