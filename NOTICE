@@ -1,0 +1,6 @@
+ruby-clm
+Copyright 2026 Valentino Stoll
+
+This product is a Ruby port of CLM (https://github.com/Contrastive-LM/CLM),
+Copyright 2026 the Contrastive-LM authors, released under the Apache License 2.0.
+The playground UI under lib/clm/server/static is adapted from that project.
