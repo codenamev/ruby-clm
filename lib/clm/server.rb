@@ -11,6 +11,7 @@ module CLM
   #   POST /v1/rank       {"context", "question", "answers": [...]} -> {"model", "ranked": [...]}
   #   GET  /v1/models     -> {"models": [{"name", "description", "release_date"}]}
   #   GET  /health        -> {"ok": true, ...}
+  #   GET  /              -> the playground: a zero-dependency web UI for the API (+ui: false+ to drop it)
   #
   # Question and answer objects follow the TypeSafe wire schema, so a request
   # written for TypeSafe replays here unchanged.  Errors are +{"detail": ...}+ with
@@ -46,15 +47,17 @@ module CLM
 
     # +cors+ allows browser requests from any origin.  It is off by default: an API
     # key travels in a header the browser would then be free to send from any page.
-    def initialize(engine, api_key: nil, cors: false)
+    def initialize(engine, api_key: nil, cors: false, ui: true)
       @engine = engine
       @api_key = api_key
       @cors = cors
+      @playground = Playground.new if ui
     end
 
     def call(env)
       request = Rack::Request.new(env)
       return [204, cors_headers, []] if @cors && request.options?
+      return @playground.call(env) if @playground&.serves?(request)
 
       status, headers, body = dispatch(request)
       [status, JSON_HEADERS.merge(cors_headers, headers), [JSON.generate(body)]]
