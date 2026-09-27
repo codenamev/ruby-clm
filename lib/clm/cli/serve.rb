@@ -15,7 +15,14 @@ module CLM
       def self.start(app, host:, port:)
         require_falcon!
         endpoint = Async::HTTP::Endpoint.parse("http://#{host}:#{port}")
-        Falcon::Server.new(Falcon::Server.rack_middleware(app, cache: false), endpoint).run
+        Falcon::Server.new(middleware(app), endpoint).run
+      end
+
+      # Falcon renamed Server.middleware to Server.rack_middleware; the Falcon that Ruby 3.2
+      # resolves (0.54) has only the old name.
+      def self.middleware(app)
+        wrap = Falcon::Server.respond_to?(:rack_middleware) ? :rack_middleware : :middleware
+        Falcon::Server.public_send(wrap, app, cache: false)
       end
 
       # Falcon is not a dependency of the gem, since only clm-serve needs it.

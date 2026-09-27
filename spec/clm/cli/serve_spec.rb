@@ -56,8 +56,9 @@ RSpec.describe CLM::CLI::Serve do
   end
 
   describe "the executable" do
+    # Standard output only: some Rubies warn on standard error (3.2 about IO::Buffer, say).
     def ruby(*args)
-      IO.popen([RbConfig.ruby, "-I", File.expand_path("../../../lib", __dir__), *args], err: %i[child out], &:read)
+      IO.popen([RbConfig.ruby, "-I", File.expand_path("../../../lib", __dir__), *args], err: File::NULL, &:read)
     end
 
     it "prints its usage" do
