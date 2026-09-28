@@ -24,6 +24,11 @@ module CLM
   #
   # Every question becomes a reader named after it, and every noul also gets a predicate. The
   # underlying {Result}, with its model and token usage, is on +#result+.
+  #
+  # Readers are defined as given, so a question named after one of this class's own methods
+  # (+result+, +usage+, +model+, +to_h+, +inspect+, +[]+) or one of Object's (+class+, +hash+,
+  # +method+, +send+, +display+, ...) replaces that method.  Pick another name, or declare it
+  # with {question} and read it as +decision["result"]+.
   class Decision
     class << self
       # The questions this decision asks, in declaration order, in the wire format.

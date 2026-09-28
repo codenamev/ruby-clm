@@ -33,12 +33,18 @@ RSpec.describe CLM::Answer do
                           probabilities: { "0" => 0.1, "1" => 0.4, "2" => 0.5 }, confidence: 0.2)
     end
 
-    it "labels the rubric level nearest the expected score" do
-      expect([answer.label, answer.levels, answer.to_f]).to eq(["annoyed", 3, 1.4])
+    it "labels the most likely level, as upstream's label_of does" do
+      expect([answer.label, answer.levels, answer.to_f]).to eq(["furious", 3, 1.4])
+    end
+
+    it "labels a split answer by a level the model favoured, the lower on a tie" do
+      split = described_class.new(score: 1.0, legend: answer.legend, confidence: 0.0,
+                                  probabilities: { "0" => 0.5, "1" => 0.0, "2" => 0.5 })
+      expect(split.label).to eq("calm")
     end
 
     it "compares against a number or a level's text" do
-      expect([answer == 1.4, answer == "annoyed", answer == :calm]).to eq([true, true, false]) # rubocop:disable Lint/FloatComparison
+      expect([answer == 1.4, answer == "furious", answer == :calm]).to eq([true, true, false]) # rubocop:disable Lint/FloatComparison
     end
   end
 
@@ -48,6 +54,10 @@ RSpec.describe CLM::Answer do
     it "reads as the probability, and as true past a threshold" do
       expect([answer.noul, answer.true?, answer.true?(0.8), answer.false?(0.8), answer == true])
         .to eq([0.7, true, false, true, true])
+    end
+
+    it "reads an even answer as true, as upstream's label_of does" do
+      expect(described_class.new(probability: 0.5)).to be_true
     end
 
     it "reports both sides and renders the wire payload without a confidence" do

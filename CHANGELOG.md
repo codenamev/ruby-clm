@@ -2,8 +2,9 @@
 
 ## [Unreleased]
 
-Initial Ruby port of [Contrastive-LM/CLM](https://github.com/Contrastive-LM/CLM), with the same API as
-[ruby-laya](https://github.com/codenamev/ruby-laya).
+Initial Ruby port of [Contrastive-LM/CLM](https://github.com/Contrastive-LM/CLM), with front doors
+shaped like [ruby-laya](https://github.com/codenamev/ruby-laya)'s and behaviour that follows upstream
+CLM where the two differ.
 
 - `CLM::Decision` (`choice`, `score levels:`, `noul yes:/no:`, `model`, `define`, `decide`) and
   `CLM.ask(state)...decide`, reading answers as Ruby values: `triage.churn_risk?`,

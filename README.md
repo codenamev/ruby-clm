@@ -10,8 +10,9 @@ aligns with the state's, and a softmax over those scores *is* the answer distrib
 and actions are embedded independently, both sides are cached and reused, which makes answers come
 back in milliseconds.
 
-This gem gives you, in idiomatic Ruby and with the same API as its sibling
-[ruby-laya](https://github.com/codenamev/ruby-laya):
+This gem gives you, in idiomatic Ruby, with front doors shaped like its sibling
+[ruby-laya](https://github.com/codenamev/ruby-laya)'s and behaviour that follows upstream CLM where
+the two differ:
 
 - **`CLM::Decision`** and **`CLM.ask`**: declare typed questions once, or inline, and read the answers
   as Ruby values (`triage.churn_risk?`, `triage.department == :billing`).
@@ -69,14 +70,14 @@ end
 
 triage = TicketTriage.decide("Customer: my invoice was charged twice and nobody answers the phone!")
 
-triage.urgent?                        # => false     every noul gets a predicate (probability > 0.5)
+triage.urgent?                        # => false     every noul gets a predicate (probability >= 0.5)
 triage.urgent.probability             # => 0.41022   probability the statement is true
 triage.department                     # => #<CLM::Answer::Choice billing 93.9%>
 triage.department == :billing         # => true      a choice stands in for its label
 triage.department.billing?            # => true
 triage.department.probabilities       # => {"billing" => 0.93878, "technical" => 0.06122}
 triage.frustration.score              # => 1.98386   expected level, 0..2
-triage.frustration.label              # => "Very angry" (the rubric text nearest the score)
+triage.frustration.label              # => "Very angry" (the most likely level's rubric text)
 triage.usage.input_tokens             # => 38        encoder tokens spent on cache misses
 triage.result.latency_ms              # => 58.1      server-side
 ```
@@ -84,7 +85,12 @@ triage.result.latency_ms              # => 58.1      server-side
 A noul can describe its two ends when the statement alone is ambiguous
 (`noul :spam, "Is this spam?", yes: "Unsolicited ads", no: "A real message"`), a choice takes labels
 as keywords, a hash or a plain list (`choice :tone, "Which tone?", %w[calm annoyed furious]`), and
-`model "clm-raw"` pins a decision to one served model. `CLM::Decision.define(hash)` builds a decision
+`model "clm-raw"` pins a decision to one served model. A question named after one of the
+decision's own methods (`result`, `usage`, `model`, `to_h`, or Object's `class`, `hash`, `send`...)
+replaces it; name it something else, or read it as `decision["result"]`.
+
+A noul reads as true from 0.5 up, and a score's `label` is its most likely level: the same rules
+upstream CLM's `label_of` uses to reduce an answer to a discrete label. `CLM::Decision.define(hash)` builds a decision
 from a question set that is generated or shipped as JSON.
 
 For questions not worth a class, ask inline:

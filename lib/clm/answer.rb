@@ -3,8 +3,9 @@
 module CLM
   # One question's answer.
   #
-  # The three types read like ruby-laya's, so a decision reads the same whichever System One
-  # model answered it, and each renders the TypeSafe wire payload through {#to_h}.
+  # Each type reads as a Ruby value (a noul as its probability, a choice as its label, a score as
+  # its rubric level) and renders the TypeSafe wire payload through {#to_h}.  Where an answer is
+  # reduced to one discrete label, the rules are upstream CLM's +schema.label_of+.
   class Answer
     attr_reader :type, :confidence
 
@@ -111,9 +112,12 @@ module CLM
         @probabilities = probabilities
       end
 
-      # The rubric text nearest the expected level.
+      # The rubric text of the most likely level, as upstream's +label_of+ picks it (ties go to
+      # the lower level).  It can differ from the level nearest +score+ when the answer is
+      # split: 0.5 on "calm" and 0.5 on "furious" labels "calm", though the expected level is 1.
       def label
-        legend.fetch(score.round.clamp(0, legend.length - 1).to_s)
+        level = probabilities.max_by { |_, p| p }.first
+        legend.fetch(level, level)
       end
 
       def to_f = score
@@ -145,9 +149,10 @@ module CLM
         @probability = probability
       end
 
-      # True when the statement is more likely than +threshold+ to hold.
+      # True when the statement's probability reaches +threshold+; at the default 0.5 this is
+      # upstream's +label_of+, so an even answer reads as true.
       def true?(threshold = 0.5)
-        probability > threshold
+        probability >= threshold
       end
 
       def false?(threshold = 0.5) = !true?(threshold)

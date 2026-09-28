@@ -21,7 +21,7 @@ puts triage.urgent.probability               # probability the statement is true
 puts triage.department == :billing           # a choice stands in for its label
 p triage.department.probabilities            # {"billing" => 0.93878, "technical" => 0.06122}
 puts triage.frustration.score                # expected level, 0..2
-puts triage.frustration.label                # the rubric text nearest it
+puts triage.frustration.label                # the most likely level's rubric text
 puts "#{triage.usage.input_tokens} encoder tokens in #{triage.result.latency_ms} ms"
 
 # Questions not worth a class:
